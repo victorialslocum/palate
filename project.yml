@@ -1,0 +1,77 @@
+title: "There is Order in Flavor"
+description: "This project uses a NER model, Word2Vec and ... to find ingredient pairings"
+# Variables can be referenced across the project.yml using ${vars.var_name}
+vars:
+  config: "config.cfg"
+  name: "order_in_flavor"
+  version: "0.0.0"
+  dataset: ""
+  spacy_model: "en_core_web_sm"
+
+# These are the directories that the project needs. The project CLI will make
+# sure that they always exist.
+directories: ["assets", "training", "configs", "scripts"]
+
+# Assets that should be downloaded or available in the directory. You can download 
+# them with the `spacy project run setup`.
+assets:
+  - dest: "assets/ingredients.json"
+    description: ""
+
+# Workflows are sequences of commands (see below) executed in order. You can
+# run them via "spacy project run [workflow]". If a commands's inputs/outputs
+# haven't changed, it won't be re-run.
+workflows:
+  setup:
+    - download_glove
+    - download_data
+    - clean_downloads
+    - glove_preprocess
+
+
+# Project commands, specified in a style similar to CI config files (e.g. Azure
+# pipelines). The name is the command name that lets you trigger the command
+# via "spacy project run [command] [path]". The help message is optional and
+# shown when executing "spacy project run [optional command] [path] --help".
+# Resources: https://cheatography.com/programming/, https://github.com/Kaggle/kaggle-api
+commands:
+  - name: "download_data"
+    help: "Download all data from Kaggle. Follow these intructions to set up a Kaggle token: https://github.com/Kaggle/kaggle-api"
+    script:
+      - "kaggle datasets download irkaal/foodcom-recipes-and-reviews -f recipes.csv -p ./assets/raw --unzip --force"
+    outputs:
+      - "./assets/raw/recipes.csv.zip"
+  - name: "clean_downloads"
+    help: "Unzip and rename raw data files"
+    script:
+      - "unzip ./assets/raw/recipes.csv.zip -d ./assets/raw"
+      - "mv ./assets/raw/recipes.csv ./assets/raw/recipes.csv"
+    outputs:
+      - "./assets/raw/recipes.csv"
+  - name: "download_glove"
+    help: "Download glove from GitHub and make"
+    script:
+      - "git clone https://github.com/stanfordnlp/glove"
+      - "cd glove && make"
+      - "cd ../"
+    outputs:
+      - "en_reciparse_model"
+  - name: "glove_preprocess"
+    help: "Preprocess csv into txt for making GloVe vectors."
+    script:
+      - "python ./scripts/preprocess.py ./assets/raw/recipes.csv ./assets/recipes.txt"
+    deps:
+      - "./assets/raw/recipes.csv"
+    outputs:
+      - "./assets/recipes.txt"
+  - name: "sense2vec"
+    help: "Process text into sense2vec vectors."
+    script:
+      - "python ./scripts/01_parse.py ./assets/recipes.txt ./assets/vectors ${vars.spacy_model}"
+      - "python ./scripts/02_preprocess.py ./assets/vectors/recipes-1.spacy ./assets/vectors ${vars.spacy_model}"
+      - "python ./scripts/03_glove_build_counts.py ./glove/build ./assets/vectors ./assets/vectors/glove_build"
+      - "python ./scripts/04_glove_train_vectors.py ./glove/build ./assets/vectors/glove_build/cooccurrence.shuf.bin ./assets/vectors/glove_build/vocab.txt ./assets/vectors/glove_train"
+      - "python ./scripts/05_export.py ./assets/vectors/glove_train/vectors_glove_128dim.txt ./assets/vectors/glove_build/vocab.txt ./assets/vectors/glove_export"
+    deps:
+      - "./assets/recipes.txt"
+  
