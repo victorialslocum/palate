@@ -1,8 +1,8 @@
 <!-- SPACY PROJECT: AUTO-GENERATED DOCS START (do not remove) -->
 
-# 🪐 spaCy Project: There is Order in Flavor
+# 🪐 spaCy Project: Palate
 
-This project uses a NER model, Word2Vec and ... to find ingredient pairings
+This project uses a NER and Sense2Vec to map ingredients within a recipe
 
 ## 📋 project.yml
 
